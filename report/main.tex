@@ -1,0 +1,256 @@
+% Template for the final project report; to be used with:
+%          spconf.sty  - ICASSP/ICIP LaTeX style file, and
+%          IEEEbib.bst - IEEE bibliography style file.
+% --------------------------------------------------------------------------
+\documentclass{article}
+\usepackage{spconf,amsmath,graphicx}
+
+% It's fine to compress itemized lists if you used them in the manuscript
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=14pt}
+\usepackage{spconf,amsmath,graphicx,epsfig,multirow,subfigure}
+\usepackage{hhline}
+\usepackage{array,ragged2e}
+\usepackage{flushend}
+\usepackage{url}
+\usepackage{dblfloatfix}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% XeLaTeX Vietnamese support
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+
+% Column definitions
+\newcolumntype{M}[1]{>{\centering\arraybackslash}m{#1}}
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% Commands for references
+\newcommand{\figref}[1]{Hình~\ref{fig:#1}}
+\newcommand{\tblref}[1]{Bảng~\ref{tbl:#1}}
+\newcommand{\eref}[1]{PT.~\eqref{eq:#1}}
+\newcommand{\secref}[1]{Mục~\ref{sec:#1}}
+
+% Bold best result
+\newcommand{\best}[1]{\textbf{#1}}
+
+% ============================================================================
+\title{Khảo sát kiến trúc Encoder--Decoder hiện đại cho bài toán Image Segmentation}
+
+\name{Nhóm XX}
+\address{Trường Đại học Bách Khoa -- ĐHQG TP.HCM\\
+Khoa Khoa học và Kỹ thuật Máy tính}
+
+\begin{document}
+\maketitle
+
+% ============================================================================
+% ABSTRACT
+% ============================================================================
+\begin{abstract}
+Phân đoạn ảnh (image segmentation) là bài toán gán nhãn cho từng điểm ảnh, đóng vai trò then chốt trong thị giác máy tính. Nghiên cứu này khảo sát có hệ thống ba kiến trúc encoder--decoder hiện đại --- U-Net (ResNet-34), SegNet (VGG16-BN) và DeepLabV3+ (ResNet-34) --- trên hai tập dữ liệu thuộc hai miền ứng dụng khác nhau: Oxford-IIIT Pet (3 lớp, ảnh tự nhiên) và Kvasir-SEG (nhị phân, ảnh nội soi y tế). Chúng tôi thực hiện 27 thí nghiệm có kiểm soát (3 models $\times$ 2 datasets $\times$ 3 seeds $\times$ 3 data fractions) để đánh giá toàn diện về độ chính xác (Mean IoU, Dice), hiệu năng tính toán (latency, bộ nhớ, FLOPs) và khả năng chịu thiếu dữ liệu. Kết quả cho thấy U-Net đạt IoU cao nhất trên cả hai tập dữ liệu (0.805 và 0.883) nhờ cơ chế skip connections dày đặc. DeepLabV3+ bám sát và có tốc độ inference nhanh nhất (6.85\,ms). SegNet kém hiệu quả nhất cả về độ chính xác lẫn chi phí tính toán (42.5 GFLOPs).
+\end{abstract}
+
+\begin{keywords}
+Encoder--decoder, phân đoạn ảnh, U-Net, SegNet, DeepLabV3+, transfer learning
+\end{keywords}
+
+% ============================================================================
+% 1. INTRODUCTION
+% ============================================================================
+\section{Giới thiệu}
+\label{sec:intro}
+
+Phân đoạn ảnh (image segmentation) là bài toán gán một nhãn ngữ nghĩa cho mỗi điểm ảnh trong ảnh đầu vào. Đầu vào của bài toán là một ảnh RGB có kích thước $H \times W \times 3$, đầu ra là một bản đồ phân đoạn (segmentation mask) có kích thước $H \times W$ với mỗi giá trị biểu diễn lớp ngữ nghĩa tương ứng. Bài toán này có ứng dụng rộng rãi trong nhiều lĩnh vực bao gồm phát hiện polyp trong nội soi~\cite{jha2020kvasir}, xe tự lái, phân tích ảnh vệ tinh và chẩn đoán y khoa.
+
+Kiến trúc encoder--decoder là lớp phương pháp phổ biến nhất cho bài toán này, trong đó encoder trích xuất đặc trưng (features) ở nhiều mức độ trừu tượng hóa, còn decoder khôi phục lại độ phân giải ban đầu. Tuy nhiên, mỗi kiến trúc có cách xử lý khác nhau trong việc kết nối encoder--decoder: U-Net~\cite{ronneberger2015unet} sử dụng skip connections nối trực tiếp (concatenate), SegNet~\cite{badrinarayanan2017segnet} dùng pooling indices để upsampling, còn DeepLabV3+~\cite{chen2018deeplabv3plus} sử dụng module ASPP (Atrous Spatial Pyramid Pooling) để thu thập ngữ cảnh đa tỷ lệ. Sự khác biệt này ảnh hưởng trực tiếp đến cả độ chính xác lẫn chi phí tính toán, đặt ra nhu cầu so sánh công bằng trên nhiều tập dữ liệu.
+
+Trong nghiên cứu này, chúng tôi chọn ba kiến trúc đại diện cho ba chiến lược kết nối encoder--decoder nêu trên, tất cả đều sử dụng pretrained encoder (ImageNet): U-Net+ResNet-34~\cite{he2016resnet}, SegNet+VGG16-BN~\cite{simonyan2015vgg} và DeepLabV3++ResNet-34. Chúng tôi đánh giá trên hai benchmark datasets thuộc hai miền dữ liệu: Oxford-IIIT Pet~\cite{parkhi2012cats} (ảnh tự nhiên, 3 lớp) và Kvasir-SEG~\cite{jha2020kvasir} (ảnh y tế, nhị phân). Tổng cộng 27 thí nghiệm được thực hiện có kiểm soát với 3 random seeds, 3 mức dữ liệu huấn luyện và cùng learning rate $3\times10^{-4}$. Ba câu hỏi nghiên cứu chính là:
+
+\begin{itemize}
+    \item \textbf{RQ1:} Trong ba kiến trúc, mô hình nào đạt Mean IoU cao nhất trên mỗi miền dữ liệu?
+    \item \textbf{RQ2:} Đánh đổi (trade-off) giữa độ chính xác và hiệu năng tính toán ra sao?
+    \item \textbf{RQ3:} Pretrained encoder giúp duy trì hiệu suất như thế nào khi lượng dữ liệu huấn luyện giảm?
+\end{itemize}
+
+Các phần tiếp theo được tổ chức như sau: Mục~2 trình bày kiến trúc và phương pháp huấn luyện, Mục~3 trình bày kết quả thực nghiệm và phân tích, Mục~4 đưa ra kết luận.
+
+% ============================================================================
+% 2. METHOD
+% ============================================================================
+\section{Phương pháp}
+\label{sec:proposed_method}
+
+\subsection{Kiến trúc mô hình}
+\label{subsec:architectures}
+
+Cả ba kiến trúc đều tuân theo mô hình encoder--decoder, trong đó encoder sử dụng trọng số pretrained trên ImageNet để trích xuất đặc trưng, decoder khôi phục độ phân giải đầy đủ. Sự khác biệt chính nằm ở cơ chế kết nối encoder--decoder (\tblref{arch}).
+
+\begin{table}[t]
+\centering
+\caption{So sánh ba kiến trúc encoder--decoder}
+\label{tbl:arch}
+\footnotesize
+\begin{tabular}{l|l|l|l}
+\toprule
+\textbf{Mô hình} & \textbf{Encoder} & \textbf{Decoder} & \textbf{Kết nối} \\
+\midrule
+U-Net & ResNet-34 & ConvTranspose & Skip concat \\
+SegNet & VGG16-BN & MaxUnpool & Pooling indices \\
+DeepLabV3+ & ResNet-34 & ASPP+Bilinear & Low-level fusion \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{U-Net + ResNet-34:} Encoder là ResNet-34 (bỏ các lớp fully-connected), decoder gồm 5 bậc ConvTranspose2d. Tại mỗi bậc, đặc trưng từ encoder được nối trực tiếp (concatenate) qua skip connections, giúp bảo tồn thông tin không gian chi tiết nhất.
+
+\textbf{SegNet + VGG16-BN:} Encoder là VGG16 có Batch Normalization. Decoder sử dụng MaxUnpool2d với pooling indices từ encoder để upsampling --- chỉ truyền vị trí max pooling mà \emph{không} truyền feature maps. Cách tiếp cận này tiết kiệm bộ nhớ truyền nhưng mất thông tin texture.
+
+\textbf{DeepLabV3+ + ResNet-34:} Module ASPP gồm 5 nhánh song song (1$\times$1 conv, dilated conv với rate 6, 12, 18, và global average pooling) xử lý ngữ cảnh đa tỷ lệ. Decoder kết hợp đầu ra ASPP với low-level features từ Stage~1 của ResNet thông qua bilinear upsampling.
+
+\subsection{Hàm mất mát và tối ưu hóa}
+
+Hàm mất mát kết hợp Cross-Entropy và Dice Loss~\cite{milletari2016vnet}:
+\begin{equation}
+\mathcal{L} = 0.5 \times \mathcal{L}_{\text{Dice}} + 0.5 \times \mathcal{L}_{\text{CE}}
+\label{eq:loss}
+\end{equation}
+
+Tối ưu hóa sử dụng AdamW~\cite{loshchilov2017adamw} với $\text{lr}=3{\times}10^{-4}$, weight\_decay~$= 10^{-4}$ và CosineAnnealingLR scheduler. Mixed Precision Training (AMP) được bật để tăng tốc. Early Stopping theo val\ IoU với patience~=~7.
+
+\subsection{Tăng cường dữ liệu}
+
+Sử dụng thư viện Albumentations~\cite{buslaev2020albumentations} với các phép biến đổi: lật ngang/dọc, xoay ngẫu nhiên, điều chỉnh sáng/tương phản, CoarseDropout, ElasticTransform và ShiftScaleRotate. Ảnh được resize về $256{\times}256$ và chuẩn hóa theo ImageNet.
+
+% ============================================================================
+% 3. RESULTS
+% ============================================================================
+\section{Kết quả thực nghiệm và phân tích}
+\label{sec:results_analysis}
+
+\subsection{Tập dữ liệu}
+
+\textbf{Oxford-IIIT Pet}~\cite{parkhi2012cats}: 7{,}349 ảnh tự nhiên chó/mèo với mask 3 lớp (nền, thú cưng, viền). Lớp viền (boundary) chiếm tỷ lệ rất nhỏ ($\sim$2\%), tạo ra bài toán mất cân bằng lớp đáng kể.
+
+\textbf{Kvasir-SEG}~\cite{jha2020kvasir}: 1{,}000 ảnh nội soi đại tràng với mask nhị phân (nền, polyp). Kích thước polyp biến thiên lớn tạo thách thức xử lý đa tỷ lệ.
+
+Cả hai tập đều được chia 70\%/15\%/15\% (train/val/test) với phân tầng (stratified).
+
+\subsection{Thiết lập thí nghiệm}
+
+Huấn luyện trên Kaggle T4 GPU (16\,GB VRAM), 25 epoch, batch size 8. Thí nghiệm kiểm soát: 3 seeds $\times$ 3 fractions (100\%, 50\%, 25\%) $\times$ 1 LR = \textbf{27 runs} trên mỗi dataset. Chỉ số đánh giá: Mean IoU, Dice, Pixel Accuracy. Tổng thời gian chạy: $\sim$7 giờ.
+
+\subsection{Kết quả chính (RQ1)}
+\label{subsec:rq1}
+
+\tblref{main} trình bày kết quả trên toàn bộ dữ liệu (fraction = 1.0) trung bình qua 3 seeds.
+
+\begin{table}[t]
+\centering
+\caption{Kết quả phân đoạn (fraction=1.0, trung bình $\pm$ độ lệch chuẩn qua 3 seeds)}
+\label{tbl:main}
+\footnotesize
+\begin{tabular}{l|l|P{1.3cm}|P{1.3cm}|P{1.3cm}}
+\toprule
+\textbf{Dataset} & \textbf{Mô hình} & \textbf{IoU}$\uparrow$ & \textbf{Dice}$\uparrow$ & \textbf{Pix.Acc}$\uparrow$ \\
+\midrule
+\multirow{3}{*}{\rotatebox{0}{\footnotesize OxPet}}
+& U-Net   & \best{.805$\pm$.002} & \best{.883$\pm$.001} & \best{.933$\pm$.000} \\
+& SegNet  & .793$\pm$.001 & .875$\pm$.000 & .928$\pm$.001 \\
+& DLV3+   & .799$\pm$.001 & .879$\pm$.001 & .930$\pm$.000 \\
+\midrule
+\multirow{3}{*}{\rotatebox{0}{\footnotesize KvaSEG}}
+& U-Net   & \best{.883$\pm$.004} & \best{.935$\pm$.002} & \best{.966$\pm$.002} \\
+& SegNet  & .874$\pm$.007 & .930$\pm$.004 & .963$\pm$.002 \\
+& DLV3+   & .877$\pm$.003 & .932$\pm$.002 & .964$\pm$.001 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Phân tích:} U-Net đạt IoU cao nhất trên \emph{cả hai} tập dữ liệu, vượt qua giả thuyết ban đầu rằng DeepLabV3+ sẽ vượt trội trên Kvasir-SEG nhờ ASPP đa tỷ lệ. Kết quả này cho thấy skip connections dày đặc của U-Net có khả năng bảo tồn thông tin không gian vượt trội, quan trọng cho cả lớp viền mỏng (boundary, Oxford Pet) lẫn vùng polyp kích thước nhỏ (Kvasir-SEG). DeepLabV3+ xếp thứ hai, trong khi SegNet luôn xếp cuối do thiếu feature skip connections --- chỉ truyền pooling indices nên mất nhiều thông tin ngữ cảnh.
+
+Trên Oxford Pet, sự chênh lệch giữa 3 models nhỏ hơn ($\Delta$IoU $\approx$ 0.012) so với Kvasir-SEG ($\Delta$IoU $\approx$ 0.009). Std rất nhỏ ($<$0.007) xác nhận kết quả ổn định qua 3 seeds.
+
+\subsection{Phân tích hiệu năng (RQ2)}
+\label{subsec:rq2}
+
+\tblref{profile} trình bày kết quả profiling trên GPU T4.
+
+\begin{table}[t]
+\centering
+\caption{So sánh hiệu năng tính toán (input $256\times256$, GPU T4)}
+\label{tbl:profile}
+\footnotesize
+\begin{tabular}{l|R{0.9cm}|R{0.9cm}|R{0.9cm}|R{0.9cm}}
+\toprule
+\textbf{Model} & \textbf{Params} & \textbf{FLOPs} & \textbf{Lat.} & \textbf{VRAM} \\
+& \textbf{(M)} & \textbf{(G)} & \textbf{(ms)} & \textbf{(MB)} \\
+\midrule
+U-Net     & 24.5 & 10.4 & 7.4  & 331 \\
+SegNet    & \emph{29.5} & \emph{42.5} & \emph{17.4} & \emph{519} \\
+DLV3+     & 26.7 & 10.4 & \best{6.9}  & 333 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Phân tích:} SegNet tiêu tốn \textbf{4.1$\times$} FLOPs và \textbf{2.5$\times$} latency so với U-Net/DeepLabV3+. Nguyên nhân: VGG16 encoder không có residual shortcuts, và decoder phải thực hiện full convolution reconstruction mà không có skip connections hỗ trợ. DeepLabV3+ đạt latency thấp nhất (6.9\,ms) nhờ decoder nhẹ.
+
+Xét trade-off accuracy--efficiency, \textbf{DeepLabV3+} là lựa chọn tốt nhất cho ứng dụng real-time: IoU chỉ thấp hơn U-Net 0.6\% nhưng nhanh hơn 7\%. U-Net đạt accuracy cao nhất với chi phí tính toán vừa phải. SegNet bị dominated --- vừa chậm nhất vừa kém chính xác nhất.
+
+\subsection{Phân tích thiếu dữ liệu (RQ3)}
+\label{subsec:rq3}
+
+\tblref{fraction} trình bày sự suy giảm IoU khi giảm lượng dữ liệu huấn luyện.
+
+\begin{table}[t]
+\centering
+\caption{Ảnh hưởng của lượng dữ liệu (Mean IoU, trung bình 3 seeds)}
+\label{tbl:fraction}
+\footnotesize
+\begin{tabular}{l|l|P{1.0cm}|P{1.0cm}|P{1.0cm}|P{0.9cm}}
+\toprule
+\textbf{Dataset} & \textbf{Model} & \textbf{100\%} & \textbf{50\%} & \textbf{25\%} & $\Delta$\textbf{(\%)} \\
+\midrule
+\multirow{3}{*}{\footnotesize OxPet}
+& U-Net  & \best{.805} & \best{.796} & \best{.787} & -2.2 \\
+& SegNet & .793 & .783 & .776 & -2.1 \\
+& DLV3+  & .799 & .787 & .776 & -2.9 \\
+\midrule
+\multirow{3}{*}{\footnotesize KvaSEG}
+& U-Net  & \best{.883} & \best{.875} & .852 & -3.5 \\
+& SegNet & .874 & .872 & .849 & -2.9 \\
+& DLV3+  & .877 & .863 & \best{.847} & -3.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Phân tích:} Trên Oxford Pet (7{,}349 ảnh), cả ba mô hình đều suy giảm dưới 3\% IoU khi giảm xuống 25\% dữ liệu, chứng tỏ pretrained encoder giúp duy trì hiệu suất tốt trên tập dữ liệu lớn ngay cả khi thiếu dữ liệu.
+
+Trên Kvasir-SEG (1{,}000 ảnh --- tập nhỏ hơn nhiều), sự suy giảm rõ rệt hơn (3--3.5\%). U-Net vẫn dẫn đầu ở 100\% và 50\%, nhưng ở 25\% sự khác biệt giữa các mô hình thu hẹp đáng kể. Điều này cho thấy khi dữ liệu quá ít, lợi thế kiến trúc giảm dần và pretrained encoder trở thành yếu tố quyết định.
+
+% ============================================================================
+% 4. CONCLUSION
+% ============================================================================
+\section{Kết luận}
+\label{sec:conclu}
+
+Nghiên cứu này so sánh có hệ thống ba kiến trúc encoder--decoder (U-Net, SegNet, DeepLabV3+) trên hai tập dữ liệu thuộc hai miền ứng dụng khác nhau thông qua 27 thí nghiệm có kiểm soát.
+
+\textbf{Kết quả chính:} (1) U-Net đạt IoU cao nhất trên cả hai dataset (0.805 và 0.883), chứng minh sức mạnh vượt trội của skip connections dày đặc cho bài toán phân đoạn. (2) DeepLabV3+ xếp thứ hai về accuracy nhưng có inference nhanh nhất (6.9\,ms), phù hợp cho ứng dụng real-time. (3) SegNet kém hiệu quả nhất cả về accuracy lẫn efficiency (42.5 GFLOPs vs 10.4 GFLOPs). (4) Pretrained encoder giúp duy trì hiệu suất khi giảm dữ liệu, với mức suy giảm IoU dưới 3.5\% ngay cả khi chỉ dùng 25\% dữ liệu huấn luyện.
+
+\textbf{Hạn chế:} Kích thước ảnh đầu vào (256$\times$256) nhỏ hơn các nghiên cứu gốc (512--1024). Chỉ sử dụng một learning rate ($3\times10^{-4}$) --- mặc dù đây là lựa chọn chuẩn cho transfer learning, nhưng chưa khảo sát LR tối ưu riêng cho từng kiến trúc. DeepLabV3+ sử dụng output stride 32 thay vì 16 như paper gốc.
+
+\textbf{Hướng phát triển:} Thay encoder bằng các kiến trúc nhẹ hơn (EfficientNet, MobileNet) để triển khai trên thiết bị edge. Áp dụng Boundary Loss và Test-Time Augmentation để cải thiện phân đoạn viền. Tối ưu hóa hyperparameter tự động (Bayesian optimization) cho từng cặp model--dataset.
+
+% ============================================================================
+% REFERENCES
+% ============================================================================
+\bibliographystyle{IEEEbib}
+\label{sec:refs}
+\bibliography{refs}
+
+\end{document}

@@ -174,3 +174,8 @@ topic05_outputs/
 Report-templates/
 Report-templates-extracted/
 *.docx
+
+outputs_PA_A/
+kaggle_output/
+*.pt
+
