@@ -1,0 +1,23 @@
+{
+  "PROJECT_NAME": "Topic05_EncoderDecoder_Segmentation",
+  "DATA_ROOT": "/kaggle/working/data",
+  "OUTPUT_ROOT": "/kaggle/working/outputs_topic05",
+  "KVASIR_IMAGE_DIR": "/kaggle/input/datasets/debeshjha1/kvasirseg/Kvasir-SEG/Kvasir-SEG/images",
+  "KVASIR_MASK_DIR": "/kaggle/input/datasets/debeshjha1/kvasirseg/Kvasir-SEG/Kvasir-SEG/masks",
+  "IMG_SIZE": "256",
+  "BATCH_SIZE": "8",
+  "NUM_WORKERS": "2",
+  "QUICK_RUN": "False",
+  "QUICK_EPOCHS": "2",
+  "FINAL_EPOCHS": "25",
+  "MODELS": "('unet_resnet34', 'segnet_vgg16', 'deeplabv3plus_resnet34')",
+  "SEEDS": "(42, 2025, 3407)",
+  "DATA_FRACTIONS": "(1.0, 0.5, 0.25)",
+  "LEARNING_RATES": "(0.0003,)",
+  "USE_AMP": "True",
+  "EARLY_STOP_PATIENCE": "7",
+  "SCHEDULER": "cosine",
+  "WEIGHT_DECAY": "0.0001",
+  "DICE_WEIGHT": "0.5",
+  "KAGGLE_KVASIR_SLUG": "debeshjha1/kvasirseg"
+}
