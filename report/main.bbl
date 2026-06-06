@@ -36,11 +36,6 @@ Karen Simonyan and Andrew Zisserman,
   recognition,''
 \newblock {\em arXiv preprint arXiv:1409.1556}, 2015.
 
-\bibitem{parkhi2012cats}
-Omkar~M. Parkhi, Andrea Vedaldi, Andrew Zisserman, and C.V. Jawahar,
-\newblock ``Cats and dogs,''
-\newblock in {\em IEEE CVPR}, 2012, pp. 3498--3505.
-
 \bibitem{milletari2016vnet}
 Fausto Milletari, Nassir Navab, and Seyed-Ahmad Ahmadi,
 \newblock ``V-net: Fully convolutional neural networks for volumetric medical
@@ -57,5 +52,10 @@ Alexander Buslaev, Vladimir~I. Iglovikov, Eugene Khvedchenya, Alex Parinov,
   Mikhail Druzhinin, and Alexandr~A. Kalinin,
 \newblock ``Albumentations: Fast and flexible image augmentations,''
 \newblock {\em Information}, vol. 11, no. 2, pp. 125, 2020.
+
+\bibitem{parkhi2012cats}
+Omkar~M. Parkhi, Andrea Vedaldi, Andrew Zisserman, and C.V. Jawahar,
+\newblock ``Cats and dogs,''
+\newblock in {\em IEEE CVPR}, 2012, pp. 3498--3505.
 
 \end{thebibliography}
