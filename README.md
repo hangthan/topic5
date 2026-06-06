@@ -61,7 +61,7 @@ So sánh có hệ thống 3 kiến trúc encoder–decoder hiện đại cho bà
 5. Đặt `QUICK_RUN = False` để chạy full 27 runs/dataset
 6. Run All → Kết quả xuất ra `/kaggle/working/outputs_topic05/`
 
-> **Thời gian chạy:** ~7 giờ (full experiments, 25 epochs × 54 runs)
+> **Thời gian chạy:** ~9 giờ (full experiments, 25 epochs × 54 runs)
 
 ### Trên Local (test pipeline)
 

@@ -14,6 +14,7 @@
 \usepackage{dblfloatfix}
 \usepackage{booktabs}
 \usepackage{xcolor}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
 
 % XeLaTeX Vietnamese support
 \usepackage{fontspec}
@@ -38,8 +39,7 @@
 \title{Khảo sát các kiến trúc Encoder--Decoder hiện đại\\cho bài toán phân đoạn ảnh}
 
 \name{Thân Thị Hằng, Lê Thị Kiều Trang}
-\address{Viện CNTT và TT - HVKTQS\\
-Bộ môn Khoa học Máy tính}
+\address{Viện CNTT và TT - HVKTQS}
 
 \begin{document}
 \maketitle
@@ -110,13 +110,20 @@ Phần còn lại của bài báo được tổ chức như sau: Mục~\ref{sec:
 \section{Phương pháp}
 \label{sec:proposed_method}
 
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=\textwidth]{figures/architecture_diagram.png}
+\caption{So sánh trực quan ba chiến lược kết nối encoder--decoder: (a)~U-Net với skip connections (concat), (b)~SegNet với pooling indices, (c)~DeepLabV3+ với ASPP và low-level fusion.}
+\label{fig:arch}
+\end{figure*}
+
 \subsection{Tổng quan kiến trúc}
 \label{subsec:arch_overview}
 
 Cả ba mô hình tuân theo kiến trúc encoder--decoder, trong đó encoder sử dụng trọng số pretrained trên ImageNet~\cite{he2016resnet,simonyan2015vgg} để trích xuất đặc trưng đa mức.
-\tblref{arch} tóm tắt các đặc trưng chính.
+Sự khác biệt trực quan giữa ba chiến lược kết nối encoder--decoder được minh họa trong \figref{arch}, và \tblref{arch} tóm tắt các đặc trưng chính của từng kiến trúc.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
 \caption{So sánh kiến trúc ba mô hình encoder--decoder}
 \label{tbl:arch}
@@ -132,17 +139,7 @@ DeepLabV3+  & ResNet-34    & ASPP + Bilinear   & Low-level fusion \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
-\centering
-% === CHÈN HÌNH KIẾN TRÚC TẠI ĐÂY ===
-% \includegraphics[width=\columnwidth]{figures/architecture_diagram.png}
-\fbox{\parbox{0.95\columnwidth}{\centering\vspace{2cm}
-\textbf{[Chèn hình kiến trúc encoder--decoder tại đây]}
-\\Xem hướng dẫn bên dưới để tạo hình.
-\vspace{2cm}}}
-\caption{So sánh trực quan ba chiến lược kết nối encoder--decoder: (a)~U-Net với skip connections (concat), (b)~SegNet với pooling indices, (c)~DeepLabV3+ với ASPP và low-level fusion.}
-\label{fig:arch}
-\end{figure}
+
 
 \subsection{U-Net + ResNet-34}
 \label{subsec:unet}
@@ -150,7 +147,7 @@ DeepLabV3+  & ResNet-34    & ASPP + Bilinear   & Low-level fusion \\
 Encoder là ResNet-34 (bỏ các lớp fully-connected và average pooling cuối), tạo ra feature maps tại 5 mức độ phân giải: $128{\times}128$, $64{\times}64$, $32{\times}32$, $16{\times}16$, $8{\times}8$.
 Decoder gồm 5 bậc, mỗi bậc thực hiện: (1)~ConvTranspose2d để upsampling $\times$2, (2)~\emph{concatenate} feature maps tương ứng từ encoder qua skip connection, (3)~hai lớp Conv-BN-ReLU.
 
-Đặc trưng cốt lõi: skip connections nối trực tiếp (concatenate) truyền \emph{toàn bộ feature maps} từ encoder sang decoder.
+Đặc trưng cốt lõi: các \emph{skip connections} thực hiện nối trực tiếp (concatenate) giúp truyền \emph{toàn bộ feature maps} từ encoder sang decoder.
 Điều này giúp decoder tiếp cận cả ngữ nghĩa cấp cao lẫn chi tiết không gian cấp thấp, đặc biệt quan trọng cho phân đoạn có đường biên phức tạp.
 
 \subsection{SegNet + VGG16-BN}
@@ -258,12 +255,17 @@ Tổng thời gian chạy: $\sim$9 giờ.
 
 Tất cả kết quả được báo cáo dưới dạng \emph{trung bình $\pm$ độ lệch chuẩn} qua 3 random seeds.
 
+\textbf{Mã nguồn và Tính tái lập (Reproducibility):}
+Nhằm đảm bảo sự minh bạch và tính tái lập, toàn bộ mã nguồn, các thiết lập cấu hình đầy đủ (được lưu trữ trong \texttt{config.json}), và hướng dẫn tái lập từng bước (trong tệp \texttt{README.md}) được công khai tại kho lưu trữ GitHub: \url{https://github.com/hangthan/topic5}.
+Ngoài ra, quá trình huấn luyện gốc cũng được chia sẻ tại Kaggle Notebook: \url{https://www.kaggle.com/code/hangthanac/topic05-encoderdecoder}.
+Môi trường thí nghiệm được phát triển trên nền tảng \texttt{PyTorch}, \texttt{torchvision} cùng thư viện \texttt{segmentation\allowbreak\_models\allowbreak\_pytorch} (SMP).
+Đồng thời, các giá trị hạt giống ngẫu nhiên (random seeds: 42, 2025, 3407) được thiết lập cố định trên toàn bộ luồng huấn luyện để đảm bảo kết quả hoàn toàn có thể tái tạo.
 \subsection{Kết quả chính --- RQ1: Accuracy}
 \label{subsec:rq1}
 
 \tblref{main} trình bày kết quả trên toàn bộ dữ liệu huấn luyện (fraction~=~1.0), trung bình qua 3 seeds.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
 \caption{Kết quả phân đoạn (fraction = 1.0, trung bình $\pm$ std qua 3 seeds). \textbf{Bold} = tốt nhất, \emph{italic} = kém nhất.}
 \label{tbl:main}
@@ -299,7 +301,7 @@ Nguyên nhân: decoder chỉ nhận pooling indices mà không nhận features.
 \textbf{Ý nghĩa thống kê:}
 Với $n{=}3$ seeds, kiểm định tham số (t-test) có power thấp. Tuy nhiên, Cohen's $d$ cho cặp U-Net vs SegNet đạt 7.6 (OxfordPet) và 1.6 (Kvasir-SEG) --- đều vượt ngưỡng ``large effect'' ($d{>}0.8$), cho thấy chênh lệch có ý nghĩa thực tế dù mẫu nhỏ.
 
-\begin{figure*}[t]
+\begin{figure*}[htbp]
 \centering
 \includegraphics[width=0.48\textwidth]{figures/training_curves_oxpet.png}
 \hfill
@@ -308,7 +310,7 @@ Với $n{=}3$ seeds, kiểm định tham số (t-test) có power thấp. Tuy nhi
 \label{fig:curves}
 \end{figure*}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\columnwidth]{figures/pred_unet_oxpet.png}
 \caption{Kết quả phân đoạn của U-Net trên OxfordPet (IoU=0.806). Từ trái sang: ảnh gốc, ground truth, prediction, error map. Lỗi tập trung ở vùng boundary.}
@@ -317,7 +319,7 @@ Với $n{=}3$ seeds, kiểm định tham số (t-test) có power thấp. Tuy nhi
 
 \tblref{perclass} phân tích chi tiết IoU theo từng lớp (fraction~=~1.0, seed tốt nhất).
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
 \caption{Per-class IoU (fraction = 1.0, seed tốt nhất)}
 \label{tbl:perclass}
@@ -353,7 +355,7 @@ Polyp nhỏ dễ bị ``mất'' qua downsampling; skip connections trực tiếp
 
 \tblref{profile} so sánh chi phí tính toán đo trên GPU T4 với input $256{\times}256$.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
 \caption{So sánh hiệu năng tính toán (input $256{\times}256$, GPU T4)}
 \label{tbl:profile}
@@ -387,7 +389,7 @@ Xét \emph{trade-off accuracy--efficiency} tổng thể:
     \item \textbf{SegNet:} bị \emph{dominated} --- vừa chậm vừa kém chính xác nhất.
 \end{itemize}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.48\columnwidth]{figures/acc_lat_oxpet.png}
 \hfill
@@ -401,7 +403,7 @@ Xét \emph{trade-off accuracy--efficiency} tổng thể:
 
 \tblref{fraction} trình bày Mean IoU tại 3 mức dữ liệu (trung bình 3 seeds) và mức suy giảm tương đối khi giảm từ 100\% xuống 25\%.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
 \caption{Ảnh hưởng của tỷ lệ dữ liệu huấn luyện (Mean IoU, trung bình 3 seeds). $\Delta$ = suy giảm tương đối 100\%$\rightarrow$25\%.}
 \label{tbl:fraction}
@@ -434,7 +436,7 @@ Trên Kvasir-SEG (1{,}000 ảnh --- tập nhỏ hơn 7$\times$), suy giảm rõ 
 Một quan sát thú vị: SegNet có mức suy giảm \emph{thấp nhất} (-2.1\% trên OxfordPet, -2.9\% trên Kvasir-SEG), dù accuracy tuyệt đối luôn thấp nhất.
 Giải thích: do decoder SegNet phải tự reconstruction toàn bộ (không dựa vào encoder features), nó ít bị ảnh hưởng bởi sự thay đổi phân phối dữ liệu --- nhưng đổi lại, nó cũng không tận dụng được thông tin chi tiết ngay cả khi có đủ dữ liệu.
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.48\columnwidth]{figures/data_fraction_oxpet.png}
 \hfill
@@ -449,7 +451,7 @@ Giải thích: do decoder SegNet phải tự reconstruction toàn bộ (không d
 
 \tblref{hypothesis} tổng hợp kết quả kiểm chứng các giả thuyết.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
 \caption{Tổng hợp kiểm chứng giả thuyết}
 \label{tbl:hypothesis}

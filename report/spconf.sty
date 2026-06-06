@@ -203,13 +203,13 @@
      \@xsect{\@tempskipa}}
 
 \def\abstract{\begin{center}
-{\bf ABSTRACT\vspace{-.5em}\vspace{0pt}}
+{\bf TÓM TẮT\vspace{-.5em}\vspace{0pt}}
 \end{center}}
 \def\endabstract{\par}
 
 % Keyword section, added by Lance Cotton, adapted from IEEEtrans, corrected by Ulf-Dietrich Braumann
 \def\keywords{\vspace{.5em}
-{\bfseries\textit{Index Terms}---\,\relax%
+{\bfseries\textit{Từ khóa}---\,\relax%
 }}
 \def\endkeywords{\par} 
 
@@ -228,7 +228,7 @@
 \if@preprint\ps@preprint
 \else\ps@empty\flushbottom\fi
 
-\def\thebibliography#1{\section{References}\list
+\def\thebibliography#1{\section{Tài liệu tham khảo}\list
  {[\arabic{enumi}]}{\settowidth\labelwidth{[#1]}\leftmargin\labelwidth
  \advance\leftmargin\labelsep
  \usecounter{enumi}}
@@ -244,8 +244,8 @@
 to\hsize{\hfil\box\@tempboxa\hfil}
  \fi}
 
-\def\fnum@figure{{\bf Fig.\ \thefigure}}
-\def\fnum@table{{\bf Table \thetable}}
+\def\fnum@figure{{\bf Hình\ \thefigure}}
+\def\fnum@table{{\bf Bảng \thetable}}
 
 \flushbottom
 
