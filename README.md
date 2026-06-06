@@ -2,67 +2,100 @@
 
 ## Mục tiêu
 
-So sánh hiệu năng 3 kiến trúc encoder–decoder hiện đại cho image segmentation:
+So sánh có hệ thống 3 kiến trúc encoder–decoder hiện đại cho bài toán phân đoạn ảnh (image segmentation), đánh giá toàn diện về accuracy, efficiency và robustness khi thiếu dữ liệu.
 
-1. **U-Net** (với ResNet34 pretrained encoder)
-2. **SegNet** (với VGG16-BN pretrained encoder)
-3. **DeepLabV3+** (với ResNet34 pretrained encoder + ASPP)
+## Mô hình
+
+| # | Mô hình | Encoder | Decoder | Kết nối E-D |
+|---|---------|---------|---------|-------------|
+| 1 | **U-Net** | ResNet-34 (pretrained) | 5× ConvTranspose2d | Skip connections (concat) |
+| 2 | **SegNet** | VGG16-BN (pretrained) | 5× MaxUnpool2d | Pooling indices |
+| 3 | **DeepLabV3+** | ResNet-34 (pretrained) | ASPP + Bilinear | Low-level fusion |
 
 ## Datasets
 
 | Dataset | Domain | Classes | Size |
 |---------|--------|---------|------|
-| **Oxford-IIIT Pet** | Natural images | 3 (background, pet, boundary) | ~7,400 images |
+| **Oxford-IIIT Pet** | Natural images | 3 (background, pet, boundary) | 7,349 images |
 | **Kvasir-SEG** | Medical (endoscopy) | 2 (background, polyp) | 1,000 images |
 
-## Cấu trúc Project
+## Cấu trúc nộp bài
 
 ```
-topic5/
-├── kaggle_topic05_segmentation.py    # Main notebook (Kaggle/Colab)
-├── local_analysis.py                  # Local analysis scripts
-├── README.md                          # This file
-├── data/                              # Datasets (auto-download)
-│   ├── oxford-iiit-pet/
-│   └── kvasir-seg/
-└── outputs/                           # Results
+02VF_Group_##/
+├── report/
+│   ├── main.pdf                    ← Báo cáo (PDF)
+│   ├── main.tex                    ← Source LaTeX
+│   ├── refs.bib                    ← Tài liệu tham khảo
+│   ├── spconf.sty                  ← IEEE style
+│   ├── IEEEbib.bst                 ← Bib style
+│   └── figures/                    ← Hình ảnh trong báo cáo
+│
+├── Topic05_EncoderDecoder.ipynb    ← Notebook chính (có output)
+│
+├── README.md                       ← File này
+│
+└── kaggle_output/extracted/        ← Kết quả thí nghiệm
+    ├── config.json
+    ├── profiling.csv
+    ├── combined_all_results.csv
+    ├── combined_summary_mean_std.csv
+    ├── cross_dataset_comparison.png
     ├── OxfordPet/
     │   ├── all_results.csv
     │   ├── summary_mean_std.csv
-    │   ├── history/
-    │   ├── checkpoints/
-    │   └── figures/
-    ├── KvasirSEG/
-    │   └── ...
-    ├── combined_all_results.csv
-    └── combined_summary_mean_std.csv
+    │   ├── figures/ (12 hình)
+    │   └── history/ (training logs)
+    └── KvasirSEG/
+        └── (tương tự)
 ```
 
 ## Cách chạy
 
-### Trên Kaggle (Khuyến nghị)
+### Trên Kaggle (Khuyến nghị — đã dùng cho thí nghiệm chính)
 
-1. Upload `kaggle_topic05_segmentation.py` lên Kaggle Notebook
-2. Thêm Kvasir-SEG dataset vào notebook
-3. Chọn **GPU T4 x2** accelerator
-4. Đặt `QUICK_RUN = False` để chạy full experiments
-5. Run All
+1. Tạo Kaggle Notebook mới
+2. Upload notebook `Topic05_EncoderDecoder.ipynb`
+3. Thêm Kvasir-SEG dataset (`debeshjha1/kvasirseg`) vào Input
+4. Chọn **GPU T4** accelerator
+5. Đặt `QUICK_RUN = False` để chạy full 27 runs/dataset
+6. Run All → Kết quả xuất ra `/kaggle/working/outputs_topic05/`
 
-### Trên Google Colab
+> **Thời gian chạy:** ~7 giờ (full experiments, 25 epochs × 54 runs)
 
-1. Upload file lên Google Drive
-2. Mở bằng Colab, chọn Runtime → T4 GPU
-3. Chạy notebook
+### Trên Local (test pipeline)
 
-### Trên Local
+```bash
+# Cài đặt
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install albumentations tqdm pandas matplotlib scipy
 
-1. Cài PyTorch CUDA:
-   ```bash
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-   pip install albumentations tqdm pandas matplotlib
-   ```
-2. Đặt `QUICK_RUN = True` để test pipeline
-3. Chạy: `python kaggle_topic05_segmentation.py`
+# Chạy nhanh (2 epochs)
+# Mở notebook, đặt QUICK_RUN = True, chạy tất cả cells
+```
+
+## Thiết lập thí nghiệm
+
+| Factor | Values |
+|--------|--------|
+| **Models** | U-Net (ResNet-34), SegNet (VGG16-BN), DeepLabV3+ (ResNet-34) |
+| **Datasets** | OxfordPet, Kvasir-SEG |
+| **Seeds** | 42, 2025, 3407 |
+| **Data fractions** | 1.0, 0.5, 0.25 |
+| **Learning rate** | 3×10⁻⁴ (cố định — fair comparison) |
+| **Optimizer** | AdamW (weight_decay=10⁻⁴) |
+| **LR Scheduler** | CosineAnnealingLR |
+| **Loss** | 0.5 × DiceLoss + 0.5 × CrossEntropyLoss |
+| **Input size** | 256×256 |
+| **Epochs** | 25 (early stopping patience=7) |
+| **Mixed Precision** | AMP enabled |
+
+**Tổng:** 3 models × 2 datasets × 3 seeds × 3 fractions = **54 runs**
+
+## Metrics
+
+- **Accuracy:** Mean IoU, Dice Coefficient, Pixel Accuracy, Per-class IoU
+- **Efficiency:** Inference Latency (ms), Peak VRAM (MB), FLOPs (GFLOPs)
 
 ## Yêu cầu thư viện
 
@@ -78,24 +111,12 @@ Pillow
 scipy
 ```
 
-## Experiments
+## Kết quả tóm tắt
 
-### Controlled Variables
-| Factor | Values |
-|--------|--------|
-| Seeds | 42, 2025, 3407 |
-| Data fractions | 1.0, 0.5, 0.25 |
-| Learning rates | 3e-4, 1e-3 |
-| Optimizer | AdamW (weight_decay=1e-4) |
-| LR Scheduler | CosineAnnealingLR |
-| Loss | CrossEntropy + DiceLoss |
-| Input size | 256×256 |
-| Epochs | 25 (with early stopping patience=7) |
+| Dataset | Best Model | Mean IoU | Latency |
+|---------|-----------|----------|---------|
+| OxfordPet | **U-Net** | **0.805** ± 0.002 | 7.4 ms |
+| Kvasir-SEG | **U-Net** | **0.883** ± 0.004 | 7.4 ms |
 
-### Metrics
-- Pixel Accuracy
-- Mean IoU (mIoU)
-- Mean Dice Score
-- Per-class IoU & Dice
-- Inference Latency (ms/image)
-- Memory Footprint (MB)
+U-Net đạt IoU cao nhất trên cả hai datasets. DeepLabV3+ inference nhanh nhất (6.9 ms).
+Chi tiết xem báo cáo `report/main.pdf`.

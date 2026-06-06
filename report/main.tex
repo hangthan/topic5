@@ -132,6 +132,18 @@ DeepLabV3+  & ResNet-34    & ASPP + Bilinear   & Low-level fusion \\
 \end{tabular}
 \end{table}
 
+\begin{figure}[t]
+\centering
+% === CHÈN HÌNH KIẾN TRÚC TẠI ĐÂY ===
+% \includegraphics[width=\columnwidth]{figures/architecture_diagram.png}
+\fbox{\parbox{0.95\columnwidth}{\centering\vspace{2cm}
+\textbf{[Chèn hình kiến trúc encoder--decoder tại đây]}
+\\Xem hướng dẫn bên dưới để tạo hình.
+\vspace{2cm}}}
+\caption{So sánh trực quan ba chiến lược kết nối encoder--decoder: (a)~U-Net với skip connections (concat), (b)~SegNet với pooling indices, (c)~DeepLabV3+ với ASPP và low-level fusion.}
+\label{fig:arch}
+\end{figure}
+
 \subsection{U-Net + ResNet-34}
 \label{subsec:unet}
 
@@ -186,8 +198,9 @@ trong đó Dice Loss giúp xử lý mất cân bằng lớp (class imbalance) --
     \item \textbf{Batch size:} 8; Input size: $256{\times}256$
 \end{itemize}
 
-Learning rate $3{\times}10^{-4}$ được chọn vì đây là giá trị chuẩn cho fine-tuning pretrained models với AdamW, đảm bảo encoder không bị phá hỏng trọng số (catastrophic forgetting) trong khi decoder có đủ gradient để học.
-Việc sử dụng cùng một LR cho tất cả mô hình đảm bảo \emph{so sánh công bằng} (fair comparison) --- đây là yêu cầu cốt lõi của nghiên cứu.
+Learning rate $3{\times}10^{-4}$ được chọn vì đây là giá trị chuẩn cho fine-tuning pretrained models với AdamW, đảm bảo encoder không bị catastrophic forgetting trong khi decoder có đủ gradient để học.
+Việc sử dụng \emph{cùng một LR} cho tất cả mô hình là lựa chọn \emph{có chủ đích} nhằm đảm bảo biến kiểm soát duy nhất là kiến trúc.
+Nếu tối ưu LR riêng cho từng model, không thể phân biệt lợi thế đến từ kiến trúc hay từ hyperparameter --- do đó fair comparison là yêu cầu cốt lõi.
 
 \subsection{Tăng cường dữ liệu}
 \label{subsec:augmentation}
@@ -273,15 +286,34 @@ Tất cả kết quả được báo cáo dưới dạng \emph{trung bình $\pm$
 \end{table}
 
 \textbf{Phân tích:}
-U-Net đạt IoU cao nhất trên \emph{cả hai} tập dữ liệu, với biên lợi thế (margin) rõ rệt: +1.2\% so với runner-up trên OxfordPet và +0.6\% trên Kvasir-SEG.
-Kết quả này \emph{xác nhận} giả thuyết H1a (U-Net thắng trên OxfordPet) nhưng \emph{bác bỏ} H1b (dự đoán DeepLabV3+ thắng trên Kvasir-SEG).
-Thực tế, skip connections dày đặc của U-Net không chỉ hiệu quả cho boundary mà còn cho polyp kích thước nhỏ --- vì thông tin vị trí chính xác (precise localization) được bảo tồn nguyên vẹn qua tất cả 5 mức.
+U-Net đạt IoU cao nhất trên \emph{cả hai} tập dữ liệu, với margin +1.2\% trên OxfordPet và +0.6\% trên Kvasir-SEG.
+Kết quả này \emph{xác nhận} H1a nhưng \emph{bác bỏ} H1b (dự đoán DeepLabV3+ thắng trên Kvasir-SEG).
+Skip connections dày đặc của U-Net bảo tồn thông tin vị trí qua tất cả 5 mức, hiệu quả cho cả boundary lẫn polyp nhỏ.
 
-DeepLabV3+ xếp thứ hai nhất quán trên cả hai dataset.
-ASPP module giúp thu thập ngữ cảnh đa tỷ lệ, nhưng chỉ kết hợp low-level features từ \emph{một} stage (Stage~1), trong khi U-Net kết hợp từ \emph{tất cả 5} stages.
+DeepLabV3+ xếp thứ hai nhất quán.
+ASPP thu thập ngữ cảnh đa tỷ lệ, nhưng chỉ kết hợp low-level features từ \emph{một} stage, trong khi U-Net kết hợp từ \emph{tất cả 5} stages.
 
-SegNet luôn xếp cuối, đặc biệt có std cao nhất (.007 trên Kvasir-SEG), cho thấy mô hình \emph{kém ổn định} hơn.
-Nguyên nhân: decoder chỉ nhận pooling indices (vị trí max) mà không nhận giá trị features, buộc phải reconstruction toàn bộ từ zero.
+SegNet luôn xếp cuối với std cao nhất (.007 trên Kvasir-SEG), cho thấy kém ổn định.
+Nguyên nhân: decoder chỉ nhận pooling indices mà không nhận features.
+
+\textbf{Ý nghĩa thống kê:}
+Với $n{=}3$ seeds, kiểm định tham số (t-test) có power thấp. Tuy nhiên, Cohen's $d$ cho cặp U-Net vs SegNet đạt 7.6 (OxfordPet) và 1.6 (Kvasir-SEG) --- đều vượt ngưỡng ``large effect'' ($d{>}0.8$), cho thấy chênh lệch có ý nghĩa thực tế dù mẫu nhỏ.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/training_curves_oxpet.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{figures/training_curves_kvasir.png}
+\caption{Đường cong huấn luyện (Loss, Mean IoU, Dice) của ba mô hình trên OxfordPet (trái) và Kvasir-SEG (phải). U-Net hội tụ nhanh và đạt val IoU cao nhất. SegNet hội tụ chậm hơn và có gap train-val lớn hơn.}
+\label{fig:curves}
+\end{figure*}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/pred_unet_oxpet.png}
+\caption{Kết quả phân đoạn của U-Net trên OxfordPet (IoU=0.806). Từ trái sang: ảnh gốc, ground truth, prediction, error map. Lỗi tập trung ở vùng boundary.}
+\label{fig:pred}
+\end{figure}
 
 \tblref{perclass} phân tích chi tiết IoU theo từng lớp (fraction~=~1.0, seed tốt nhất).
 
@@ -339,21 +371,30 @@ DLV3+     & 26.7 & \best{10.4} & \best{6.9}  & 333 \\
 \end{table}
 
 \textbf{Phân tích:}
-SegNet tiêu tốn \textbf{4.1$\times$} FLOPs và có latency \textbf{2.5$\times$} so với U-Net và DeepLabV3+, \emph{xác nhận} giả thuyết H2.
-Nguyên nhân kép: (1)~VGG16 encoder có 13 lớp conv không có residual shortcuts, tốn 30.7 GFLOPs chỉ riêng encoder --- so với 3.7 GFLOPs của ResNet-34;
-(2)~decoder phải thực hiện full convolution reconstruction (5 blocks $\times$ 2--3 lớp conv) vì không nhận được features hỗ trợ từ encoder.
+SegNet tiêu tốn \textbf{4.1$\times$} FLOPs và \textbf{2.5$\times$} latency so với hai model còn lại, \emph{xác nhận} H2.
+Cụ thể, VGG16 encoder chiếm $\sim$30.7 GFLOPs (13 lớp conv~3$\times$3 liên tiếp, không có residual hay bottleneck) so với $\sim$3.7 GFLOPs của ResNet-34.
+Decoder SegNet thêm $\sim$11.8 GFLOPs do phải reconstruction đối xứng toàn bộ.
+Con số 42.5 GFLOPs đã được xác minh bằng thư viện fvcore (Facebook Research) với input $256{\times}256$, phản ánh đúng đặc trưng kiến trúc VGG16.
 
-DeepLabV3+ đạt latency thấp nhất (6.9\,ms) nhờ decoder cực nhẹ: chỉ gồm 1 nhánh low-level fusion với $1{\times}1$ conv giảm kênh + bilinear upsampling $4\times$ (gần như zero-cost).
-Trong khi đó, U-Net decoder dùng 5 bậc ConvTranspose2d + conv blocks nên chậm hơn nhẹ (7.4\,ms).
-
-Về peak VRAM, SegNet tiêu tốn 519\,MB --- nhiều hơn 57\% so với U-Net (331\,MB), do VGG16 encoder tạo ra feature maps rộng hơn (64→512 kênh qua 5 blocks liên tiếp không có bottleneck).
+DeepLabV3+ đạt latency thấp nhất (6.9\,ms) nhờ decoder nhẹ: 1 nhánh low-level fusion + bilinear upsampling.
+U-Net chậm hơn nhẹ (7.4\,ms) do 5 bậc ConvTranspose2d.
+Về VRAM, SegNet tốn 519\,MB (+57\% so với U-Net) do VGG16 tạo feature maps rộng hơn.
 
 Xét \emph{trade-off accuracy--efficiency} tổng thể:
 \begin{itemize}
     \item \textbf{U-Net:} accuracy cao nhất, chi phí vừa phải --- \emph{lựa chọn tốt nhất khi ưu tiên accuracy}.
-    \item \textbf{DeepLabV3+:} accuracy chỉ thấp hơn U-Net 0.6\% nhưng inference nhanh hơn 7\% --- \emph{lựa chọn tối ưu cho real-time applications}.
-    \item \textbf{SegNet:} bị \emph{dominated} --- vừa chậm nhất vừa kém chính xác nhất trên cả hai dataset.
+    \item \textbf{DeepLabV3+:} accuracy chỉ thấp hơn U-Net 0.6\% nhưng inference nhanh hơn 7\% --- \emph{lựa chọn tối ưu cho real-time}.
+    \item \textbf{SegNet:} bị \emph{dominated} --- vừa chậm vừa kém chính xác nhất.
 \end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\columnwidth]{figures/acc_lat_oxpet.png}
+\hfill
+\includegraphics[width=0.48\columnwidth]{figures/acc_lat_kvasir.png}
+\caption{Trade-off accuracy--latency trên OxfordPet (trái) và Kvasir-SEG (phải). Kích thước bubble tỷ lệ với FLOPs. SegNet bị dominated (góc dưới-phải).}
+\label{fig:tradeoff}
+\end{figure}
 
 \subsection{Phân tích thiếu dữ liệu --- RQ3: Data Scarcity}
 \label{subsec:rq3}
@@ -391,7 +432,17 @@ Trên Kvasir-SEG (1{,}000 ảnh --- tập nhỏ hơn 7$\times$), suy giảm rõ 
 Điều này cho thấy khi dữ liệu quá ít, \emph{lợi thế kiến trúc giảm dần} và pretrained encoder trở thành yếu tố quyết định.
 
 Một quan sát thú vị: SegNet có mức suy giảm \emph{thấp nhất} (-2.1\% trên OxfordPet, -2.9\% trên Kvasir-SEG), dù accuracy tuyệt đối luôn thấp nhất.
-Giải thích: do decoder SegNet phải tự reconstruction toàn bộ (không dựa vào encoder features), nó ít bị ảnh hưởng bởi sự thay đổi phân phối dữ liệu huấn luyện --- nhưng đổi lại, nó cũng không tận dụng được thông tin chi tiết ngay cả khi có đủ dữ liệu.
+Giải thích: do decoder SegNet phải tự reconstruction toàn bộ (không dựa vào encoder features), nó ít bị ảnh hưởng bởi sự thay đổi phân phối dữ liệu --- nhưng đổi lại, nó cũng không tận dụng được thông tin chi tiết ngay cả khi có đủ dữ liệu.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\columnwidth]{figures/data_fraction_oxpet.png}
+\hfill
+\includegraphics[width=0.48\columnwidth]{figures/data_fraction_kvasir.png}
+\caption{Suy giảm IoU theo tỷ lệ dữ liệu huấn luyện. OxfordPet (trái): suy giảm đều dưới 3\%. Kvasir-SEG (phải): suy giảm rõ rệt hơn, khoảng cách giữa models thu hẹp tại 25\%.}
+\label{fig:fraction}
+\end{figure}
+
 
 \subsection{Thảo luận tổng hợp}
 \label{subsec:discussion}
