@@ -169,8 +169,7 @@ outputs_topic05_2/
 outputs_topic05_3/
 topic05_outputs/
 *.zip
-*.txt
-*.pdf
+*.txt 
 Report-templates/
 Report-templates-extracted/
 *.docx

@@ -3,10 +3,9 @@
 % Compile:  xelatex main.tex → bibtex main → xelatex ×2
 % ============================================================================
 \documentclass{article}
-\usepackage{spconf,amsmath,graphicx}
+\usepackage{spconf,amsmath,graphicx,multirow}
 \usepackage{enumitem}
 \setlist{nosep, leftmargin=14pt}
-\usepackage{spconf,amsmath,graphicx,epsfig,multirow,subfigure}
 \usepackage{hhline}
 \usepackage{array,ragged2e}
 \usepackage{flushend}
@@ -48,13 +47,12 @@
 %  ABSTRACT
 % =====================================================================
 \begin{abstract}
-Phân đoạn ảnh (image segmentation) là bài toán gán nhãn ngữ nghĩa cho từng điểm ảnh, đóng vai trò then chốt trong thị giác máy tính hiện đại.
-Nghiên cứu này khảo sát có hệ thống ba kiến trúc encoder--decoder đại diện cho ba chiến lược kết nối khác nhau --- U-Net với skip connections dày đặc (ResNet-34), SegNet với pooling indices (VGG16-BN) và DeepLabV3+ với Atrous Spatial Pyramid Pooling (ResNet-34) --- trên hai tập dữ liệu thuộc hai miền ứng dụng: Oxford-IIIT Pet (3 lớp, ảnh tự nhiên) và Kvasir-SEG (nhị phân, ảnh nội soi y tế).
-Tổng cộng 27 thí nghiệm có kiểm soát (3 mô hình $\times$ 2 datasets $\times$ 3 random seeds $\times$ 3 tỷ lệ dữ liệu) được thực hiện nhằm đánh giá toàn diện về độ chính xác (Mean IoU, Dice), hiệu năng tính toán (latency, bộ nhớ, FLOPs) và tính bền vững khi thiếu dữ liệu huấn luyện.
-Kết quả cho thấy U-Net đạt IoU cao nhất trên cả hai tập dữ liệu (0.805 trên OxfordPet và 0.883 trên Kvasir-SEG) nhờ khả năng bảo tồn thông tin không gian vượt trội qua skip connections.
-DeepLabV3+ có hiệu suất sát nút (IoU~0.799 và 0.877) và đồng thời là mô hình inference nhanh nhất (6.9\,ms).
+Phân đoạn ảnh (image segmentation) là bài toán gán nhãn ngữ nghĩa cho từng điểm ảnh, đóng vai trò then chốt trong thị giác máy tính.
+Nghiên cứu này thực hiện \emph{khảo sát so sánh có hệ thống} (systematic comparative study) ba kiến trúc encoder--decoder đại diện cho ba chiến lược kết nối khác nhau --- U-Net với skip connections (ResNet-34), SegNet với pooling indices (VGG16-BN) và DeepLabV3+ với ASPP (ResNet-34) --- trên hai tập dữ liệu thuộc hai miền ứng dụng: Oxford-IIIT Pet (3 lớp, ảnh tự nhiên) và Kvasir-SEG (nhị phân, ảnh nội soi y tế).
+Tổng cộng 54 thí nghiệm có kiểm soát (3 mô hình $\times$ 2 datasets $\times$ 3 seeds $\times$ 3 tỷ lệ dữ liệu) tại baseline $256{\times}256$ cùng 4 thí nghiệm ablation tại $512{\times}512$ được thực hiện nhằm đánh giá toàn diện về độ chính xác (Mean IoU, Dice), hiệu năng tính toán (latency, FLOPs) và tính bền vững khi thiếu dữ liệu.
+Kết quả cho thấy U-Net đạt IoU cao nhất tại baseline (0.805 trên OxfordPet, 0.883 trên Kvasir-SEG) nhờ skip connections dày đặc; tuy nhiên, thí nghiệm ablation cho thấy DeepLabV3+ vượt U-Net khi tăng input lên $512{\times}512$ với output stride 16 (IoU 0.895 vs 0.891 trên Kvasir-SEG), xác nhận ASPP chỉ phát huy khi feature map đủ lớn.
 SegNet kém hiệu quả nhất cả về accuracy lẫn chi phí tính toán (42.5 GFLOPs, chậm 2.5$\times$).
-Pretrained encoder giúp duy trì hiệu suất tốt ngay cả khi chỉ dùng 25\% dữ liệu huấn luyện, với mức suy giảm IoU dưới 3.5\%.
+Pretrained encoder giúp duy trì hiệu suất tốt với mức suy giảm IoU dưới 3.5\% khi chỉ dùng 25\% dữ liệu.
 \end{abstract}
 
 \begin{keywords}
@@ -69,9 +67,9 @@ Encoder--decoder, phân đoạn ảnh, U-Net, SegNet, DeepLabV3+, transfer learn
 
 Phân đoạn ảnh (image segmentation) là bài toán gán một nhãn ngữ nghĩa cho mỗi điểm ảnh (pixel) trong ảnh đầu vào.
 Cụ thể, đầu vào là ảnh RGB kích thước $H{\times}W{\times}3$, đầu ra là bản đồ phân đoạn (segmentation mask) $H{\times}W$ với mỗi giá trị tương ứng một lớp ngữ nghĩa.
-Bài toán này đóng vai trò nền tảng trong nhiều lĩnh vực ứng dụng: phát hiện polyp trong nội soi đại tràng~\cite{jha2020kvasir}, phân tích ảnh y tế, xe tự lái, nông nghiệp chính xác và viễn thám.
+Bài toán này đóng vai trò nền tảng trong nhiều lĩnh vực ứng dụng: phát hiện polyp trong nội soi đại tràng~\cite{jha2020kvasir}, phân tích ảnh y tế, xe tự lái, nông nghiệp chính xác và viễn thám~\cite{minaee2021image}.
 
-Kiến trúc encoder--decoder là lớp phương pháp chủ đạo cho bài toán phân đoạn, trong đó phần \emph{encoder} trích xuất đặc trưng (features) ở nhiều mức trừu tượng hóa với độ phân giải giảm dần, còn phần \emph{decoder} có nhiệm vụ khôi phục lại độ phân giải ban đầu để tạo ra segmentation mask.
+Kể từ khi Long et al.~\cite{long2015fcn} đề xuất Fully Convolutional Network (FCN), kiến trúc encoder--decoder đã trở thành lớp phương pháp chủ đạo cho bài toán phân đoạn, trong đó phần \emph{encoder} trích xuất đặc trưng (features) ở nhiều mức trừu tượng hóa với độ phân giải giảm dần, còn phần \emph{decoder} có nhiệm vụ khôi phục lại độ phân giải ban đầu để tạo ra segmentation mask.
 Thách thức cốt lõi nằm ở cơ chế \emph{kết nối giữa encoder và decoder}: làm thế nào để decoder tận dụng tối đa thông tin từ encoder nhằm khôi phục các chi tiết không gian (spatial details) đã bị mất qua quá trình downsampling.
 Ba chiến lược kết nối tiêu biểu là:
 (1)~\emph{Skip connections} --- nối trực tiếp feature maps từ encoder sang decoder (U-Net~\cite{ronneberger2015unet});
@@ -79,8 +77,8 @@ Ba chiến lược kết nối tiêu biểu là:
 (3)~\emph{Multi-scale context} --- sử dụng atrous convolution ở nhiều tỷ lệ để thu thập ngữ cảnh (DeepLabV3+~\cite{chen2018deeplabv3plus}).
 Sự khác biệt về cơ chế kết nối dẫn đến các đánh đổi (trade-offs) khác nhau giữa độ chính xác, chi phí tính toán và khả năng khái quát hóa.
 
-Mặc dù đã có nhiều nghiên cứu so sánh riêng lẻ, \emph{ít có công trình nào thực hiện so sánh công bằng cả ba chiến lược trên cùng điều kiện huấn luyện}, cùng encoder pretrained, và trên nhiều miền dữ liệu.
-Nghiên cứu này lấp đầy khoảng trống đó bằng cách thiết kế thí nghiệm có kiểm soát chặt chẽ.
+Mặc dù đã có nhiều nghiên cứu tổng quan~\cite{minaee2021image} và so sánh riêng lẻ, \emph{ít có công trình nào thực hiện so sánh công bằng cả ba chiến lược kết nối trên cùng điều kiện huấn luyện}, cùng encoder pretrained, và trên nhiều miền dữ liệu.
+Bài báo này, về bản chất là một \emph{khảo sát so sánh có hệ thống} (systematic comparative study), lấp đầy khoảng trống đó bằng cách thiết kế thí nghiệm có kiểm soát chặt chẽ theo phương pháp hypothesis-driven, nhằm trả lời cho yêu cầu nghiên cứu \emph{Investigating the modern encoder--decoder architectures for image segmentation}.
 
 \subsection{Câu hỏi nghiên cứu và giả thuyết}
 
@@ -120,7 +118,7 @@ Phần còn lại của bài báo được tổ chức như sau: Mục~\ref{sec:
 \subsection{Tổng quan kiến trúc}
 \label{subsec:arch_overview}
 
-Cả ba mô hình tuân theo kiến trúc encoder--decoder, trong đó encoder sử dụng trọng số pretrained trên ImageNet~\cite{he2016resnet,simonyan2015vgg} để trích xuất đặc trưng đa mức.
+Cả ba mô hình tuân theo kiến trúc encoder--decoder, trong đó encoder sử dụng trọng số pretrained trên ImageNet~\cite{deng2009imagenet,he2016resnet,simonyan2015vgg} để trích xuất đặc trưng đa mức.
 Sự khác biệt trực quan giữa ba chiến lược kết nối encoder--decoder được minh họa trong \figref{arch}, và \tblref{arch} tóm tắt các đặc trưng chính của từng kiến trúc.
 
 \begin{table}[htbp]
@@ -243,7 +241,7 @@ Ma trận thí nghiệm kiểm soát bao gồm:
 
 Tổng cộng: $3 \times 2 \times 3 \times 3 = \textbf{54}$ runs (27 runs/dataset).
 Số epoch tối đa: 25, với Early Stopping (patience~=~7).
-Tổng thời gian chạy: $\sim$9 giờ.
+Tổng thời gian chạy: $\sim$11 giờ (9 giờ baseline + 2 giờ ablation $512{\times}512$).
 
 \textbf{Chỉ số đánh giá:}
 \begin{itemize}
@@ -258,7 +256,7 @@ Tất cả kết quả được báo cáo dưới dạng \emph{trung bình $\pm$
 \textbf{Mã nguồn và Tính tái lập (Reproducibility):}
 Nhằm đảm bảo sự minh bạch và tính tái lập, toàn bộ mã nguồn, các thiết lập cấu hình đầy đủ (được lưu trữ trong \texttt{config.json}), và hướng dẫn tái lập từng bước (trong tệp \texttt{README.md}) được công khai tại kho lưu trữ GitHub: \url{https://github.com/hangthan/topic5}.
 Ngoài ra, quá trình huấn luyện gốc cũng được chia sẻ tại Kaggle Notebook: \url{https://www.kaggle.com/code/hangthanac/topic05-encoderdecoder}.
-Môi trường thí nghiệm được phát triển trên nền tảng \texttt{PyTorch}, \texttt{torchvision} cùng thư viện \texttt{segmentation\allowbreak\_models\allowbreak\_pytorch} (SMP).
+Môi trường thí nghiệm được phát triển trên nền tảng \texttt{PyTorch}, \texttt{torchvision} cùng thư viện \texttt{segmentation\allowbreak\_models\allowbreak\_pytorch} (SMP)~\cite{iakubovskii2019smp}.
 Đồng thời, các giá trị hạt giống ngẫu nhiên (random seeds: 42, 2025, 3407) được thiết lập cố định trên toàn bộ luồng huấn luyện để đảm bảo kết quả hoàn toàn có thể tái tạo.
 \subsection{Kết quả chính --- RQ1: Accuracy}
 \label{subsec:rq1}
@@ -299,7 +297,7 @@ SegNet luôn xếp cuối với std cao nhất (.007 trên Kvasir-SEG), cho th�
 Nguyên nhân: decoder chỉ nhận pooling indices mà không nhận features.
 
 \textbf{Ý nghĩa thống kê:}
-Với $n{=}3$ seeds, kiểm định tham số (t-test) có power thấp. Tuy nhiên, Cohen's $d$ cho cặp U-Net vs SegNet đạt 7.6 (OxfordPet) và 1.6 (Kvasir-SEG) --- đều vượt ngưỡng ``large effect'' ($d{>}0.8$), cho thấy chênh lệch có ý nghĩa thực tế dù mẫu nhỏ.
+Với $n{=}3$ seeds, kiểm định tham số (t-test) có power thấp. Tuy nhiên, Cohen's $d$~\cite{cohen1988statistical} cho cặp U-Net vs SegNet đạt 7.6 (OxfordPet) và 1.6 (Kvasir-SEG) --- đều vượt ngưỡng ``large effect'' ($d{>}0.8$), cho thấy chênh lệch có ý nghĩa thực tế dù mẫu nhỏ.
 
 \begin{figure*}[htbp]
 \centering
@@ -348,7 +346,7 @@ Trên OxfordPet, sự khác biệt tập trung ở lớp \emph{boundary} --- l�
 Điều này xác nhận rằng skip connections giúp khôi phục các cấu trúc mỏng (thin structures) hiệu quả hơn.
 
 Trên Kvasir-SEG, chênh lệch chủ yếu ở lớp polyp (U-Net: 0.812 vs DeepLabV3+: 0.800), trong khi background gần như đồng đều ($\sim$0.96).
-Polyp nhỏ dễ bị ``mất'' qua downsampling; skip connections trực tiếp giúp U-Net ``nhớ'' vị trí các polyp nhỏ tốt hơn ASPP --- vốn chỉ aggregrate thông tin toàn cục.
+Polyp nhỏ dễ bị ``mất'' qua downsampling; skip connections trực tiếp giúp U-Net ``nhớ'' vị trí các polyp nhỏ tốt hơn ASPP --- vốn chỉ aggregate thông tin toàn cục.
 
 \subsection{Phân tích hiệu năng --- RQ2: Efficiency Trade-offs}
 \label{subsec:rq2}
@@ -446,6 +444,44 @@ Giải thích: do decoder SegNet phải tự reconstruction toàn bộ (không d
 \end{figure}
 
 
+\subsection{Ablation: Input $512{\times}512$ + Output Stride 16}
+\label{subsec:ablation}
+
+Để kiểm chứng giả thuyết rằng ASPP mất hiệu quả do input nhỏ, chúng tôi thực hiện thí nghiệm bổ sung với hai thay đổi: (1)~tăng input size lên $512{\times}512$, (2)~chuyển DeepLabV3+ sang \emph{output stride 16} bằng dilated convolution ở layer4 (thay vì stride 32 ở baseline).
+Feature map cuối encoder tăng từ $8{\times}8$ lên $32{\times}32$, giúp ASPP hoạt động đúng thiết kế gốc.
+Batch size giảm xuống 2 với gradient accumulation (steps=4) để giữ effective batch size = 8.
+SegNet bị loại do bị dominated ở baseline và VGG16@512 sẽ vượt VRAM T4.
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation: So sánh IoU tại 256 (stride 32) vs 512 (stride 16). Seed = 42, fraction = 1.0.}
+\label{tbl:ablation}
+\footnotesize
+\begin{tabular}{l|l|P{1.1cm}|P{1.1cm}|P{0.9cm}}
+\toprule
+\textbf{Dataset} & \textbf{Model} & \textbf{IoU @256} & \textbf{IoU @512} & $\Delta$ \\
+\midrule
+\multirow{2}{*}{\footnotesize OxPet}
+& U-Net        & .805 & .804 & $-$.001 \\
+& DLV3+ s16    & .799 & \best{.809} & +.010 \\
+\midrule
+\multirow{2}{*}{\footnotesize KvaSEG}
+& U-Net        & .883 & .891 & +.008 \\
+& DLV3+ s16    & .877 & \best{.895} & +.018 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Phân tích:}
+DLV3+ s16@512 \emph{vượt U-Net@512} trên cả hai dataset: +0.5\% trên OxfordPet (0.809 vs 0.804) và +0.4\% trên Kvasir-SEG (0.895 vs 0.891).
+Đáng chú ý, DLV3+ cải thiện mạnh nhất ở lớp polyp trên Kvasir-SEG (IoU = 0.829 vs U-Net 0.819, $\Delta$=+1.0\%) --- chính xác là domain mà ASPP multi-scale được thiết kế để xử lý.
+
+Kết quả này cho phép kết luận: \textbf{H1b được xác nhận có điều kiện} --- DeepLabV3+ chỉ vượt U-Net khi ASPP có đủ spatial resolution (input $\geq 512$, stride $\leq 16$).
+Tại baseline $256{\times}256$ + stride 32, feature map $8{\times}8$ khiến ASPP degenerate, mất lợi thế multi-scale.
+Điều này gợi ý rằng khi triển khai DeepLabV3+ trong thực tế, input size và output stride cần được chọn phù hợp với cấu hình ASPP.
+
+DLV3+ s16@512 cũng duy trì latency thấp hơn U-Net (25.4\,ms vs 28.1\,ms), mặc dù FLOPs tăng từ 10.4G lên 54.6G do spatial resolution cao hơn.
+
 \subsection{Thảo luận tổng hợp}
 \label{subsec:discussion}
 
@@ -461,21 +497,28 @@ Giải thích: do decoder SegNet phải tự reconstruction toàn bộ (không d
 \textbf{GT} & \textbf{KQ} & \textbf{Giải thích} \\
 \midrule
 H1a & \best{Xác nhận} & U-Net thắng trên OxPet (.805) \\
-H1b & Bác bỏ & U-Net thắng cả KvaSEG (.883), không phải DLV3+ (.877) \\
+H1b & Có điều kiện & @256: bác bỏ; @512+s16: \best{xác nhận} (Mục~\ref{subsec:ablation}) \\
 H2  & \best{Xác nhận} & SegNet 42.5G FLOPs, 2.5$\times$ chậm hơn \\
 H3  & \best{Xác nhận} & Suy giảm < 3.5\% ở mức 25\% data \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Kết quả bác bỏ H1b là phát hiện đáng chú ý nhất.
-Giả thuyết H1b dựa trên nhận định rằng ASPP của DeepLabV3+ xử lý đa tỷ lệ tốt hơn, phù hợp cho polyp kích thước biến thiên.
-Tuy nhiên, thực tế cho thấy với input size $256{\times}256$ (tương đối nhỏ), receptive field mặc định của ResNet-34 đã đủ bao phủ toàn bộ ảnh, và ASPP không tạo thêm lợi thế đáng kể.
-Trong khi đó, U-Net truyền features từ \emph{tất cả} 5 stages cho decoder (tổng cộng $64+64+128+256+512=1024$ kênh bổ sung), cung cấp thông tin phong phú hơn nhiều so với DeepLabV3+ chỉ dùng 1 nhánh low-level ($64$ kênh giảm còn $48$).
+Kết quả H1b là phát hiện đáng chú ý nhất.
+Tại baseline $256{\times}256$, feature map cuối encoder chỉ $8{\times}8$ --- khiến ASPP dilation rate 18 bao phủ gần 100\% feature map, các nhánh trở nên gần giống nhau và mất ý nghĩa multi-scale.
+U-Net truyền features từ \emph{tất cả} 5 stages (tổng $1024$ kênh bổ sung), phong phú hơn nhiều so với 1 nhánh low-level ($48$ kênh) của DeepLabV3+.
+Tuy nhiên, thí nghiệm ablation cho thấy khi tăng input lên $512{\times}512$ và dùng output stride 16, DeepLabV3+ vượt U-Net trên cả hai dataset --- chứng minh ASPP chỉ phát huy khi feature map đủ lớn ($32{\times}32$).
 
 \textbf{Nhận xét về tính ổn định (stability):}
 Std của U-Net trên Kvasir-SEG (.004) cao hơn OxfordPet (.002) do tập dữ liệu nhỏ hơn, nhưng vẫn ở mức chấp nhận được.
 SegNet có std cao nhất (.007 trên Kvasir-SEG), cho thấy tính không ổn định do decoder thiếu thông tin hỗ trợ từ encoder.
+
+\textbf{Nhận xét về confounding factor (backbone):}
+Cần lưu ý rằng SegNet sử dụng encoder VGG16-BN trong khi U-Net và DeepLabV3+ sử dụng ResNet-34.
+VGG16 có kiến trúc cũ hơn (không có residual connections, bottleneck) và chi phí tính toán cao hơn nhiều so với ResNet-34.
+Do đó, hiệu suất kém hơn của SegNet có thể đến từ \emph{cả hai yếu tố}: (1)~cơ chế pooling indices hạn chế thông tin truyền sang decoder, và (2)~backbone VGG16 kém hiệu quả hơn ResNet-34.
+Tuy nhiên, việc sử dụng VGG16 cho SegNet là lựa chọn theo thiết kế gốc~\cite{badrinarayanan2017segnet} và phản ánh đúng thực tế triển khai; thay thế bằng ResNet-34 sẽ biến SegNet thành một kiến trúc khác về bản chất.
+Đây là hạn chế cần được tính đến khi diễn giải kết quả so sánh.
 
 % =====================================================================
 % 4. CONCLUSION
@@ -483,27 +526,27 @@ SegNet có std cao nhất (.007 trên Kvasir-SEG), cho thấy tính không ổn 
 \section{Kết luận}
 \label{sec:conclu}
 
-Nghiên cứu này thực hiện so sánh có hệ thống ba kiến trúc encoder--decoder --- U-Net, SegNet và DeepLabV3+ --- trên hai tập dữ liệu thuộc hai miền ứng dụng khác nhau, thông qua 54 runs thí nghiệm có kiểm soát (27/dataset).
+Nghiên cứu này thực hiện so sánh có hệ thống ba kiến trúc encoder--decoder --- U-Net, SegNet và DeepLabV3+ --- trên hai tập dữ liệu thuộc hai miền ứng dụng khác nhau, thông qua 54 runs thí nghiệm có kiểm soát (27/dataset) tại baseline $256{\times}256$ và 4 runs ablation bổ sung tại $512{\times}512$.
 
 \textbf{Các kết quả chính:}
 \begin{enumerate}
-    \item \textbf{U-Net đạt IoU cao nhất} trên cả hai dataset (0.805 và 0.883), chứng minh sức mạnh vượt trội của chiến lược skip connections dày đặc --- truyền toàn bộ feature maps từ 5 stages của encoder cho decoder.
-    \item \textbf{DeepLabV3+ cân bằng accuracy--speed tốt nhất:} IoU chỉ thấp hơn U-Net 0.6\% nhưng inference nhanh nhất (6.9\,ms), phù hợp cho ứng dụng real-time.
-    \item \textbf{SegNet kém hiệu quả nhất} cả về accuracy lẫn efficiency (42.5 GFLOPs, peak VRAM 519\,MB). Chiến lược chỉ dùng pooling indices tỏ ra không đủ bù đắp cho việc mất thông tin features.
-    \item \textbf{Pretrained encoder đóng vai trò nền tảng:} mức suy giảm IoU dưới 3.5\% ngay cả khi chỉ dùng 25\% dữ liệu huấn luyện.
-    \item Giả thuyết H1b bị bác bỏ: U-Net vượt trội trên cả Kvasir-SEG (medical), không phải DeepLabV3+ như dự đoán.
+    \item \textbf{U-Net đạt IoU cao nhất tại baseline $256{\times}256$} trên cả hai dataset (0.805 và 0.883), chứng minh sức mạnh vượt trội của chiến lược skip connections dày đặc.
+    \item \textbf{DeepLabV3+ cân bằng accuracy--speed tốt nhất:} IoU chỉ thấp hơn U-Net 0.6\% nhưng inference nhanh nhất (6.9\,ms), phù hợp cho real-time.
+    \item \textbf{DeepLabV3+ vượt U-Net khi tăng input lên $512{\times}512$ + output stride 16} (IoU 0.895 vs 0.891 trên Kvasir-SEG), xác nhận H1b \emph{có điều kiện}: ASPP chỉ phát huy khi feature map đủ lớn.
+    \item \textbf{SegNet kém hiệu quả nhất} cả về accuracy lẫn efficiency (42.5 GFLOPs, VRAM 519\,MB).
+    \item \textbf{Pretrained encoder đóng vai trò nền tảng:} suy giảm IoU dưới 3.5\% ngay cả khi chỉ dùng 25\% dữ liệu.
 \end{enumerate}
 
 \textbf{Hạn chế:}
-(1)~Input size $256{\times}256$ nhỏ hơn các nghiên cứu gốc (512--1024), có thể làm giảm lợi thế của ASPP.
-(2)~Chỉ sử dụng một learning rate --- mặc dù đây là chuẩn cho transfer learning, nhưng chưa khảo sát LR tối ưu cho từng kiến trúc.
-(3)~DeepLabV3+ sử dụng output stride 32 thay vì 16 như paper gốc --- có thể làm giảm chất lượng kết quả.
+(1)~Thí nghiệm ablation $512{\times}512$ chỉ chạy 1 seed (42) do giới hạn GPU quota --- cần thêm seeds để xác nhận statistical significance.
+(2)~Chỉ sử dụng một learning rate cố định; tối ưu LR riêng cho từng kiến trúc có thể thay đổi ranking.
+(3)~Chưa có ablation study tắt skip connections để chứng minh đây là yếu tố quyết định.
 
 \textbf{Hướng phát triển:}
-Thay thế encoder bằng các kiến trúc nhẹ (EfficientNet-B0, MobileNetV3) để triển khai trên thiết bị edge.
+Thay thế encoder bằng kiến trúc nhẹ (EfficientNet-B0, MobileNetV3) để triển khai trên thiết bị edge.
 Áp dụng Boundary Loss chuyên biệt và Test-Time Augmentation để cải thiện lớp boundary.
-Sử dụng tối ưu hóa hyperparameter tự động (Bayesian optimization, Optuna) để tìm cấu hình tối ưu cho từng cặp model--dataset.
-Tăng input size lên 512 và dùng output stride 16 cho DeepLabV3+ để đánh giá lại giả thuyết H1b.
+Sử dụng tối ưu hóa hyperparameter tự động (Optuna) để tìm cấu hình tối ưu cho từng cặp model--dataset.
+Mở rộng ablation $512{\times}512$ với đầy đủ 3 seeds và 3 data fractions để xác nhận xu hướng DLV3+ s16 vượt trội.
 
 % =====================================================================
 % REFERENCES
